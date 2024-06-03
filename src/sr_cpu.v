@@ -1,17 +1,8 @@
-/*
- * schoolRISCV - small RISC-V CPU 
- *
- * originally based on Sarah L. Harris MIPS CPU 
- *                   & schoolMIPS project
- * 
- * Copyright(c) 2017-2020 Stanislav Zhelnio 
- *                        Aleksandr Romanov 
- */ 
+
 
 `include "sr_cpu.vh"
 
-module sr_cpu
-(
+module sr_cpu (
     input           clk,        // clock
     input           rst_n,      // reset
     input   [ 4:0]  regAddr,    // debug access reg address
@@ -26,6 +17,9 @@ module sr_cpu
     wire        aluSrc;
     wire        wdSrc;
     wire  [2:0] aluControl;
+    wire        a1Src;                                          // ---ADDED
+    wire        a3Src;                                          // ---ADDED
+    wire        stackControl;                                   // ---ADDED
 
     //instruction decode wires
     wire [ 6:0] cmdOp;
@@ -44,6 +38,11 @@ module sr_cpu
     wire [31:0] pcPlus4  = pc + 4;
     wire [31:0] pcNext   = pcSrc ? pcBranch : pcPlus4;
     sm_register r_pc(clk ,rst_n, pcNext, pc);
+
+    //stack pointer
+    wire [4:0] sp;                                              // ---ADDED
+    wire [4:0] spNext = stackControl ? sp + 1 : sp - 1;         // ---ADDED
+    sp_register r_sp(clk, rst_n, spNext, sp);                   // ---ADDED
 
     //program memory access
     assign imAddr = pc >> 2;
@@ -69,12 +68,17 @@ module sr_cpu
     wire [31:0] rd2;
     wire [31:0] wd3;
 
+    wire [4:0] a1;                                              // ---ADDED
+    wire [4:0] a3;                                              // ---ADDED
+    assign a1 = (a1Src) ? sp : rs1;
+    assign a3 = (a3Src) ? rd : sp;
+
     sm_register_file rf (
         .clk        ( clk          ),
         .a0         ( regAddr      ),
-        .a1         ( rs1          ),
+        .a1         ( a1           ),                           // ---ADDED
         .a2         ( rs2          ),
-        .a3         ( rd           ),
+        .a3         ( a3           ),                           // ---ADDED
         .rd0        ( rd0          ),
         .rd1        ( rd1          ),
         .rd2        ( rd2          ),
@@ -109,13 +113,15 @@ module sr_cpu
         .regWrite   ( regWrite     ),
         .aluSrc     ( aluSrc       ),
         .wdSrc      ( wdSrc        ),
-        .aluControl ( aluControl   ) 
+        .aluControl ( aluControl   ),
+        .a1Src      ( a1Src        ),                           // ---Added
+        .a3Src      ( a3Src        ),                           // ---Added
+        .stackControl ( stackControl )                          // ---Added
     );
 
 endmodule
 
-module sr_decode
-(
+module sr_decode (
     input      [31:0] instr,
     output     [ 6:0] cmdOp,
     output     [ 4:0] rd,
@@ -157,8 +163,7 @@ module sr_decode
 
 endmodule
 
-module sr_control
-(
+module sr_control (
     input     [ 6:0] cmdOp,
     input     [ 2:0] cmdF3,
     input     [ 6:0] cmdF7,
@@ -167,7 +172,10 @@ module sr_control
     output reg       regWrite, 
     output reg       aluSrc,
     output reg       wdSrc,
-    output reg [2:0] aluControl
+    output reg [2:0] aluControl,
+    output reg a1Src,                                           // ---ADDED
+    output reg a3Src,                                           // ---ADDED
+    output reg stackControl                                     // ---ADDED
 );
     reg          branch;
     reg          condZero;
@@ -180,6 +188,9 @@ module sr_control
         aluSrc      = 1'b0;
         wdSrc       = 1'b0;
         aluControl  = `ALU_ADD;
+        a1Src       = 1'b0;                                     // ---ADDED
+        a3Src       = 1'b1;                                     // ---ADDED
+        stackControl= 1'b1;                                     // ---ADDED
 
         casez( {cmdF7, cmdF3, cmdOp} )
             { `RVF7_ADD,  `RVF3_ADD,  `RVOP_ADD  } : begin regWrite = 1'b1; aluControl = `ALU_ADD;  end
@@ -193,12 +204,14 @@ module sr_control
 
             { `RVF7_ANY,  `RVF3_BEQ,  `RVOP_BEQ  } : begin branch = 1'b1; condZero = 1'b1; aluControl = `ALU_SUB; end
             { `RVF7_ANY,  `RVF3_BNE,  `RVOP_BNE  } : begin branch = 1'b1; aluControl = `ALU_SUB; end
+
+            { `RVF7_ANY,  `RVF3_ANY,  `RVOP_PUSH  } : begin  regWrite = 1'b1; aluControl = `ALU_NOOP; a3Src = 1'b0; stackControl= 1'b0; end     // ---ADDED
+            { `RVF7_ANY,  `RVF3_ANY,  `RVOP_POP  } : begin  regWrite = 1'b1; aluControl = `ALU_NOOP; a1Src = 1'b1; end                          // ---ADDED
         endcase
     end
 endmodule
 
-module sr_alu
-(
+module sr_alu (
     input  [31:0] srcA,
     input  [31:0] srcB,
     input  [ 2:0] oper,
@@ -213,14 +226,14 @@ module sr_alu
             `ALU_SRL  : result = srcA >> srcB [4:0];
             `ALU_SLTU : result = (srcA < srcB) ? 1 : 0;
             `ALU_SUB : result = srcA - srcB;
+            `ALU_NOOP : result = srcA;                          // ---ADDED
         endcase
     end
 
     assign zero   = (result == 0);
 endmodule
 
-module sm_register_file
-(
+module sm_register_file (
     input         clk,
     input  [ 4:0] a0,
     input  [ 4:0] a1,

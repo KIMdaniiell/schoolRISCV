@@ -1,13 +1,3 @@
-/*
- * schoolRISCV - small RISC-V CPU 
- *
- * originally based on Sarah L. Harris MIPS CPU 
- *                   & schoolMIPS project
- * 
- * Copyright(c) 2017-2020 Stanislav Zhelnio 
- *                        Aleksandr Romanov 
- */ 
-
 `timescale 1 ns / 100 ps
 
 `include "sr_cpu.vh"
@@ -101,6 +91,9 @@ module sm_testbench;
 
             { `RVF7_ANY,  `RVF3_BEQ,  `RVOP_BEQ  } : $write ("beq   $%1d, $%1d, 0x%8h (%1d)", rs1, rs2, immB, immB);
             { `RVF7_ANY,  `RVF3_BNE,  `RVOP_BNE  } : $write ("bne   $%1d, $%1d, 0x%8h (%1d)", rs1, rs2, immB, immB);
+
+            { `RVF7_ANY,  `RVF3_ANY,  `RVOP_PUSH  } : $write ("push $%1d", rs1);                                        // ---ADDED
+            { `RVF7_ANY,  `RVF3_ANY,  `RVOP_POP  } :  $write ("pop  $%1d", rd);                                         // ---ADDED
         endcase
     end
     endtask

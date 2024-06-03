@@ -1,15 +1,6 @@
-/*
- * schoolRISCV - small RISC-V CPU 
- *
- * originally based on Sarah L. Harris MIPS CPU 
- *                   & schoolMIPS project
- * 
- * Copyright(c) 2017-2020 Stanislav Zhelnio 
- *                        Aleksandr Romanov 
- */ 
 
-module sm_hex_display
-(
+
+module sm_hex_display (
     input      [3:0] digit,
     output reg [6:0] seven_segments
 );

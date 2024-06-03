@@ -1,15 +1,6 @@
-/*
- * schoolRISCV - small RISC-V CPU 
- *
- * originally based on Sarah L. Harris MIPS CPU 
- *                   & schoolMIPS project
- * 
- * Copyright(c) 2017-2020 Stanislav Zhelnio 
- *                        Aleksandr Romanov 
- */ 
 
-module sm_register
-(
+
+module sm_register (
     input                 clk,
     input                 rst,
     input      [ 31 : 0 ] d,
@@ -23,8 +14,7 @@ module sm_register
 endmodule
 
 
-module sm_register_we
-(
+module sm_register_we (
     input                 clk,
     input                 rst,
     input                 we,
@@ -36,4 +26,18 @@ module sm_register_we
             q <= 32'b0;
         else
             if(we) q <= d;
+endmodule
+
+// ---ADDED
+module sp_register (
+    input                 clk,
+    input                 rst,
+    input      [ 4 : 0 ] d,
+    output reg [ 4 : 0 ] q
+);
+    always @ (posedge clk or negedge rst)
+        if(~rst)
+            q <= 5'b11111;
+        else
+            q <= d;
 endmodule

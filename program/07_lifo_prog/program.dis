@@ -1,0 +1,22 @@
+
+program.elf:     file format elf32-littleriscv
+
+
+Disassembly of section .text:
+
+00000000 <.text>:
+   0:	00000513          	addi	a0,zero,0
+
+00000004 <init>:
+   4:	11150513          	addi	a0,a0,273
+
+00000008 <push>:
+   8:	00050023          	sb	zero,0(a0)
+   c:	00050023          	sb	zero,0(a0)
+  10:	00050023          	sb	zero,0(a0)
+  14:	00050023          	sb	zero,0(a0)
+  18:	00050023          	sb	zero,0(a0)
+  1c:	00050023          	sb	zero,0(a0)
+
+00000020 <return>:
+  20:	fe0002e3          	beq	zero,zero,4 <init>
