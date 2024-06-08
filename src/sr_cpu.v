@@ -17,6 +17,7 @@ module sr_cpu (
     wire        aluSrc;
     wire        wdSrc;
     wire  [2:0] aluControl;
+    wire        stack;                                          // ---ADDED
     wire        a1Src;                                          // ---ADDED
     wire        a3Src;                                          // ---ADDED
     wire        stackControl;                                   // ---ADDED
@@ -40,9 +41,10 @@ module sr_cpu (
     sm_register r_pc(clk ,rst_n, pcNext, pc);
 
     //stack pointer
-    wire [4:0] sp;                                              // ---ADDED
-    wire [4:0] spNext = stackControl ? sp + 1 : sp - 1;         // ---ADDED
-    sp_register r_sp(clk, rst_n, spNext, sp);                   // ---ADDED
+    wire [4:0] spCur;                                           // ---ADDED
+    wire [4:0] spNext = stackControl ? spCur + 1 : spCur - 1;   // ---ADDED
+    wire [4:0] sp = stack ? spNext : spCur;                     // ---ADDED
+    sp_register r_sp(clk, rst_n, sp, spCur);                    // ---ADDED
 
     //program memory access
     assign imAddr = pc >> 2;
@@ -67,18 +69,16 @@ module sr_cpu (
     wire [31:0] rd1;
     wire [31:0] rd2;
     wire [31:0] wd3;
-
-    wire [4:0] a1;                                              // ---ADDED
-    wire [4:0] a3;                                              // ---ADDED
-    assign a1 = (a1Src) ? sp : rs1;
-    assign a3 = (a3Src) ? rd : sp;
-
+    wire [ 4:0] srcA1;                                          // ---ADDED
+    wire [ 4:0] srcA3;                                          // ---ADDED
+    assign srcA1 = (a1Src) ? rs1 : spCur;                       // ---ADDED
+    assign srcA3 = (a3Src) ? rd : spCur - 1;                    // ---ADDED
     sm_register_file rf (
         .clk        ( clk          ),
         .a0         ( regAddr      ),
-        .a1         ( a1           ),                           // ---ADDED
+        .a1         ( srcA1        ),                           // ---ADDED
         .a2         ( rs2          ),
-        .a3         ( a3           ),                           // ---ADDED
+        .a3         ( srcA3        ),                           // ---ADDED
         .rd0        ( rd0          ),
         .rd1        ( rd1          ),
         .rd2        ( rd2          ),
@@ -114,9 +114,10 @@ module sr_cpu (
         .aluSrc     ( aluSrc       ),
         .wdSrc      ( wdSrc        ),
         .aluControl ( aluControl   ),
-        .a1Src      ( a1Src        ),                           // ---Added
-        .a3Src      ( a3Src        ),                           // ---Added
-        .stackControl ( stackControl )                          // ---Added
+        .a1Src      ( a1Src        ),                           // ---ADDED
+        .a3Src      ( a3Src        ),                           // ---ADDED
+        .stackControl ( stackControl ),                         // ---ADDED
+        .stack      ( stack )                                   // ---ADDED
     );
 
 endmodule
@@ -175,7 +176,8 @@ module sr_control (
     output reg [2:0] aluControl,
     output reg a1Src,                                           // ---ADDED
     output reg a3Src,                                           // ---ADDED
-    output reg stackControl                                     // ---ADDED
+    output reg stackControl,                                    // ---ADDED
+    output reg stack                                            // ---ADDED
 );
     reg          branch;
     reg          condZero;
@@ -188,8 +190,9 @@ module sr_control (
         aluSrc      = 1'b0;
         wdSrc       = 1'b0;
         aluControl  = `ALU_ADD;
-        a1Src       = 1'b0;                                     // ---ADDED
+        a1Src       = 1'b1;                                     // ---ADDED
         a3Src       = 1'b1;                                     // ---ADDED
+        stack       = 1'b0;                                     // ---ADDED
         stackControl= 1'b1;                                     // ---ADDED
 
         casez( {cmdF7, cmdF3, cmdOp} )
@@ -205,8 +208,8 @@ module sr_control (
             { `RVF7_ANY,  `RVF3_BEQ,  `RVOP_BEQ  } : begin branch = 1'b1; condZero = 1'b1; aluControl = `ALU_SUB; end
             { `RVF7_ANY,  `RVF3_BNE,  `RVOP_BNE  } : begin branch = 1'b1; aluControl = `ALU_SUB; end
 
-            { `RVF7_ANY,  `RVF3_ANY,  `RVOP_PUSH  } : begin  regWrite = 1'b1; aluControl = `ALU_NOOP; a3Src = 1'b0; stackControl= 1'b0; end     // ---ADDED
-            { `RVF7_ANY,  `RVF3_ANY,  `RVOP_POP  } : begin  regWrite = 1'b1; aluControl = `ALU_NOOP; a1Src = 1'b1; end                          // ---ADDED
+            { `RVF7_ANY,  `RVF3_ANY,  `RVOP_PUSH  } : begin  regWrite = 1'b1; aluControl = `ALU_NOOP; stack = 1'b1; stackControl= 1'b0; a3Src = 1'b0; end     // ---ADDED
+            { `RVF7_ANY,  `RVF3_ANY,  `RVOP_POP  } :  begin  regWrite = 1'b1; aluControl = `ALU_NOOP; stack = 1'b1; stackControl= 1'b1; a1Src = 1'b0; end     // ---ADDED
         endcase
     end
 endmodule

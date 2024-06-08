@@ -37,7 +37,7 @@ module sp_register (
 );
     always @ (posedge clk or negedge rst)
         if(~rst)
-            q <= 5'b11111;
+            q <= 5'b0;
         else
             q <= d;
 endmodule
